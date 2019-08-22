@@ -14,8 +14,8 @@ std::string ptree_to_string(pt::ptree ptree) {
     return ss.str();
 };
 
-template<class Body, class Allocator,class Send> void
-handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send)
+template<class Body, class Allocator,class Send, class GameBord> void
+handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
 {
     auto const response =
     [&req](http::status status, pt::ptree sent_json) {
@@ -59,7 +59,7 @@ template<class Stream> struct send_lambda {
 };
 
 // HTTP server connect
-void server_session(tcp::socket& socket) {
+void server_session(tcp::socket& socket, GameBord* gamebord) {
     beast::error_code ec;
     beast::flat_buffer buffer;
     send_lambda<tcp::socket> lambda{socket, ec};
@@ -67,6 +67,6 @@ void server_session(tcp::socket& socket) {
     http::request<http::string_body> req;
     http::read(socket, buffer, req, ec);
 
-    handle_request(std::move(req), lambda);
+    handle_request(std::move(req), lambda, gamebord);
     socket.shutdown(tcp::socket::shutdown_send, ec);
 }

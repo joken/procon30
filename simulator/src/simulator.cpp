@@ -15,7 +15,7 @@ int main() {
     try {
         auto const address = net::ip::make_address("127.0.0.1");
         auto const port = static_cast<short unsigned int>(8081);
-
+        GameBord *gamebord = new GameBord;
         net::io_context ioc(1);
         tcp::acceptor accepter(ioc, tcp::endpoint(address, port));
         boost::system::error_code error;
@@ -24,7 +24,7 @@ int main() {
             accepter.accept(socket, error);
             std::thread{std::bind(
                 &server_session,
-                std::move(socket))}.detach();
+                std::move(socket), gamebord)}.detach();
             std::cout << error << std::endl;
         }
     } catch (std::exception &e) {
