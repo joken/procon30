@@ -8,36 +8,39 @@ namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
 namespace pt = boost::property_tree;
 
-std::string ptreeToString(pt::ptree ptree) {
+std::string ptree_to_string(pt::ptree ptree) {
     std::stringstream ss;
     write_json(ss, ptree);
     return ss.str();
 };
 
 template<class Body, class Allocator,class Send, class GameBord> void
-handleRequest(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
+handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
 {
     auto const response =
     [&req](http::status status, pt::ptree sent_json) {
         http::response<http::string_body> res{status, req.version()};
         res.set(http::field::content_type, "application/json");
         res.keep_alive(req.keep_alive());
-        res.body() = ptreeToString(sent_json);
+        res.body() = ptree_to_string(sent_json);
         res.content_length(res.body().size());
         res.prepare_payload();
         return res;
     };
 
+    pt::ptree result_json;
     if (req.target() == "/matches") {
-        pt::ptree ptree;
-        ptree.put("status", "OK");
+        result_json.put("status", "OK");
         std::cout << "Status: get Match" << std::endl;
-        return send(response(http::status::ok, ptree));
+        return send(response(http::status::ok, result_json));
+    } else if (req.target() == "/favicon.ico" ) {
+        result_json.put("status", "Not Found");
+        std::cout << "Status: Can not get favicon" << std::endl;
+        return send(response(http::status::not_found, result_json));
     } else {
-        pt::ptree ptree;
-        ptree.put("status", "Invalid URL");
+        result_json.put("status", "Invalid URL");
         std::cout << "Status: Invalid URL" << std::endl;
-        return send(response(http::status::bad_request, ptree));
+        return send(response(http::status::bad_request, result_json));
     }
     std::cout << req.target() << std::endl;
 }
@@ -67,6 +70,6 @@ void serverSession(tcp::socket& socket, GameBord* gamebord) {
     http::request<http::string_body> req;
     http::read(socket, buffer, req, ec);
 
-    handleRequest(std::move(req), lambda, gamebord);
+    handle_request(std::move(req), lambda, gamebord);
     socket.shutdown(tcp::socket::shutdown_send, ec);
 }

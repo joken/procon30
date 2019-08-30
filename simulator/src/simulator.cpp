@@ -1,10 +1,10 @@
 #include <boost/beast.hpp>
-#include "server.cpp"
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
+#include "server.cpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -16,7 +16,7 @@ int main() {
         auto const address = net::ip::make_address("127.0.0.1");
         auto const port = static_cast<short unsigned int>(8081);
         GameBord *gamebord = new GameBord;
-        gamebord->initalizeFieldsFromJsonFile();
+        gamebord->initalize_fields();
         net::io_context ioc(1);
         tcp::acceptor accepter(ioc, tcp::endpoint(address, port));
         boost::system::error_code error;
