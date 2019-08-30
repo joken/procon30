@@ -1,28 +1,28 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
-#include "gamebord.cpp"
+#include "game_bord.cpp"
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
 namespace pt = boost::property_tree;
 
-std::string ptree_to_string(pt::ptree ptree) {
+std::string ptreeToString(pt::ptree ptree) {
     std::stringstream ss;
     write_json(ss, ptree);
     return ss.str();
 };
 
 template<class Body, class Allocator,class Send, class GameBord> void
-handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
+handleRequest(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
 {
     auto const response =
     [&req](http::status status, pt::ptree sent_json) {
         http::response<http::string_body> res{status, req.version()};
         res.set(http::field::content_type, "application/json");
         res.keep_alive(req.keep_alive());
-        res.body() = ptree_to_string(sent_json);
+        res.body() = ptreeToString(sent_json);
         res.content_length(res.body().size());
         res.prepare_payload();
         return res;
@@ -59,7 +59,7 @@ template<class Stream> struct send_lambda {
 };
 
 // HTTP server connect
-void server_session(tcp::socket& socket, GameBord* gamebord) {
+void serverSession(tcp::socket& socket, GameBord* gamebord) {
     beast::error_code ec;
     beast::flat_buffer buffer;
     send_lambda<tcp::socket> lambda{socket, ec};
@@ -67,6 +67,6 @@ void server_session(tcp::socket& socket, GameBord* gamebord) {
     http::request<http::string_body> req;
     http::read(socket, buffer, req, ec);
 
-    handle_request(std::move(req), lambda, gamebord);
+    handleRequest(std::move(req), lambda, gamebord);
     socket.shutdown(tcp::socket::shutdown_send, ec);
 }
