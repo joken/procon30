@@ -1,5 +1,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
+#include <time.h>
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
@@ -24,13 +25,37 @@ struct Actions {
 class GameBord {
 private:
     std::vector<std::vector<Tile>> game_field_;
+    bool init_check_ = false;
     int width_, height_;
     int teamID_[2];
     int turn_ = 0;
     std::vector<Agent> agent_coordinate_[2];
+    std::vector<std::vector<bool>> area_count_;
+    // information
+    int matchID_ = 1;
+    int interval_millisecond_ = 10 * 1000;
+    std::string match_name_ = "temporary";
+    int turn_millisecond_ = 1 * 1000;
+    int max_turns_ = 100;
+    
+    int unix_time_;
+    
+
+    void tile_not_surrounded(int team_id, int x, int y) {
+        if (game_field_[x][y].have_team == team_id || area_count_[x][y]) return;
+        area_count_[x][y] = true;
+        if (x > 0) tile_not_surrounded(team_id, x - 1, y);
+        if (y > 0) tile_not_surrounded(team_id, x, y - 1);
+        if (x < height_ - 1) tile_not_surrounded(team_id, x + 1, y);
+        if (y < width_ - 1) tile_not_surrounded(team_id, x, y + 1);
+    }
 
 public:
     void initalize_fields() {
+        if (init_check_) {
+            std::cout << "Already init" << std::endl;
+            return;
+        }
         std::cout << "Input filed json file." << std::endl;
         std::string filename;
         std::cin >> filename;
@@ -78,5 +103,62 @@ public:
                 });
             }
         }
+
+        // confirm
+        for (int i = 0; i < 2; i++) {
+            tile_point_caluculate(teamID_[i]);
+            area_point_calculate(teamID_[i]);
+        }
+
+        unix_time_ = time(nullptr);
+        std::cout << "unix time: " << unix_time_ << std::endl;
+    }
+
+    int tile_point_caluculate(int team_id) {
+        int tile_point = 0;
+        for (int i = 0; i < height_; i++) {
+            for (int j = 0; j < width_; j++) {
+                if (game_field_[i][j].have_team == team_id) tile_point += game_field_[i][j].score;
+            }
+        }
+        std::cout << team_id << " have tile point: " << tile_point << std::endl;
+        return tile_point;
+    }
+
+    int area_point_calculate(int team_id) {
+        if (area_count_.empty()) {
+            // init
+            for (int i = 0; i < height_; i++) {
+                std::vector<bool> horizonal_vector(width_, false);
+                area_count_.push_back(horizonal_vector);
+            }
+        } else {
+            for (int i = 0; i < height_; i++) {
+                for (int j = 0; j < width_; j++) {
+                    area_count_[i][j] = false;
+                }
+            }
+        }
+
+        for (int i = 0; i < height_; i++) {
+            tile_not_surrounded(team_id, i, 0);
+            tile_not_surrounded(team_id, i, width_ - 1);
+        }
+
+        for (int i = 0; i < width_; i++) {
+            tile_not_surrounded(team_id, 0, i);
+            tile_not_surrounded(team_id, height_ - 1, i);
+        }
+
+        int area_point = 0;
+        for (int i = 0; i < height_; i++) {
+            for (int j = 0; j < width_; j++) {
+                if (game_field_[i][j].have_team != team_id && !area_count_[i][j]) {
+                    area_point += abs(game_field_[i][j].score);
+                }
+            }
+        }
+        std::cout << team_id << " have area point: " << area_point << std::endl;
+        return area_point;
     }
 };

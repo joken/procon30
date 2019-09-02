@@ -29,7 +29,7 @@ handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& 
     };
 
     pt::ptree result_json;
-    if (req.target() == "/matches") {
+    if (req.target() == "/ping") {
         result_json.put("status", "OK");
         std::cout << "Status: get Match" << std::endl;
         return send(response(http::status::ok, result_json));
