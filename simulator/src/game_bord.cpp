@@ -1,6 +1,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
 #include <time.h>
+#include "picojson.h"
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
@@ -160,5 +161,21 @@ public:
         }
         std::cout << team_id << " have area point: " << area_point << std::endl;
         return area_point;
+    }
+
+    picojson::array get_game_information() {
+        picojson::array match_list;
+        picojson::object match;
+
+        match.insert(std::make_pair("id", picojson::value(static_cast<double>(matchID_))));
+        match.insert(std::make_pair("intervalMillis", picojson::value(static_cast<double>(interval_millisecond_))));
+        match.insert(std::make_pair("matchTo", picojson::value(match_name_)));
+        match.insert(std::make_pair("teamID", picojson::value(static_cast<double>(teamID_[0]))));
+        match.insert(std::make_pair("turnMillis", picojson::value(static_cast<double>(turn_millisecond_))));
+        match.insert(std::make_pair("turns", picojson::value(static_cast<double>(max_turns_))));
+        
+        match_list.push_back(picojson::value(match));
+        
+        return match_list;
     }
 };

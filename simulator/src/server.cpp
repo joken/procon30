@@ -1,46 +1,67 @@
+#include <regex>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include "game_bord.cpp"
+#include "picojson.h"
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = boost::asio::ip::tcp;
 namespace pt = boost::property_tree;
 
-std::string ptree_to_string(pt::ptree ptree) {
-    std::stringstream ss;
-    write_json(ss, ptree);
-    return ss.str();
+std::string picojson_to_string(picojson::object obj) {
+    picojson::value val(obj);
+    return val.serialize();
 };
+
+// method over load
+std::string picojson_to_string(picojson::array arr) {
+    picojson::value val(arr);
+    return val.serialize();
+}
 
 template<class Body, class Allocator,class Send, class GameBord> void
 handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
 {
-    auto const response =
-    [&req](http::status status, pt::ptree sent_json) {
+    auto const object_response =
+    [&req](http::status status, picojson::object sent_json) {
         http::response<http::string_body> res{status, req.version()};
         res.set(http::field::content_type, "application/json");
         res.keep_alive(req.keep_alive());
-        res.body() = ptree_to_string(sent_json);
+        res.body() = picojson_to_string(sent_json);
         res.content_length(res.body().size());
         res.prepare_payload();
         return res;
     };
 
-    pt::ptree result_json;
+    auto const array_response =
+    [&req](http::status status, picojson::array sent_json) {
+        http::response<http::string_body> res{status, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.keep_alive(req.keep_alive());
+        res.body() = picojson_to_string(sent_json);
+        res.content_length(res.body().size());
+        res.prepare_payload();
+        return res;
+    };
+
+    picojson::object result_json;
     if (req.target() == "/ping") {
-        result_json.put("status", "OK");
+        result_json.insert(std::make_pair("status", "OK"));
+        std::cout << "Status: get Ping" << std::endl;
+        return send(object_response(http::status::ok, result_json));
+    } else if (req.target() == "/matches") {
         std::cout << "Status: get Match" << std::endl;
-        return send(response(http::status::ok, result_json));
+        return send(array_response(http::status::ok, gamebord->get_game_information()));
     } else if (req.target() == "/favicon.ico" ) {
-        result_json.put("status", "Not Found");
+        result_json.insert(std::make_pair("status", "Favicon is not found."));
         std::cout << "Status: Can not get favicon" << std::endl;
-        return send(response(http::status::not_found, result_json));
+        return send(object_response(http::status::not_found, result_json));
     } else {
-        result_json.put("status", "Invalid URL");
+        result_json.insert(std::make_pair("status", "Invalid URL"));
         std::cout << "Status: Invalid URL" << std::endl;
-        return send(response(http::status::bad_request, result_json));
+        return send(object_response(http::status::bad_request, result_json));
     }
     std::cout << req.target() << std::endl;
 }
