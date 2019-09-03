@@ -29,21 +29,21 @@ private:
     bool init_check_ = false;
     int width_, height_;
     int teamID_[2];
-    int turn_ = 1;
+    int turn_ = 0;
     std::vector<Agent> agent_coordinate_[2];
     std::vector<std::vector<bool>> area_count_;
     // information
     int matchID_ = 1;
     int interval_millisecond_ = 10 * 1000;
     std::string match_name_ = "temporary";
-    int turn_millisecond_ = 1 * 1000;
+    int turn_millisecond_ = 5 * 1000;
     int max_turns_ = 100;
     int started_unix_time_;
     // game history
     std::vector<Actions> agent_actions_[2];
     std::vector<Actions> actions_history_;
     // start parameter
-    int between = 10;
+    int between = 1;
     
 
     void tile_not_surrounded(int team_id, int x, int y) {
@@ -300,6 +300,7 @@ public:
 
 
     void next_turn() {
+        ++turn_;
         int action_size = agent_actions_[0].size();
         // stay overwrite
         for (int i = 0; i < action_size * 2; i++) {
@@ -364,7 +365,7 @@ public:
             (*action).type = "stay";
             (*action).turn = turn_;
         }
-        ++turn_;
+        
         
 
     }
