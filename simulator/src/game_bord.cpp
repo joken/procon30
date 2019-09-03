@@ -29,7 +29,7 @@ private:
     bool init_check_ = false;
     int width_, height_;
     int teamID_[2];
-    int turn_ = 0;
+    int turn_ = 1;
     std::vector<Agent> agent_coordinate_[2];
     std::vector<std::vector<bool>> area_count_;
     // information
@@ -42,6 +42,8 @@ private:
     // game history
     std::vector<Actions> agent_actions_[2];
     std::vector<Actions> actions_history_;
+    // start parameter
+    int between = 10;
     
 
     void tile_not_surrounded(int team_id, int x, int y) {
@@ -53,7 +55,59 @@ private:
         if (y < width_ - 1) tile_not_surrounded(team_id, x, y + 1);
     }
 
+    int tile_point_calculate(int team_id) {
+        int tile_point = 0;
+        for (int i = 0; i < height_; i++) {
+            for (int j = 0; j < width_; j++) {
+                if (game_field_[i][j].have_team == team_id) tile_point += game_field_[i][j].score;
+            }
+        }
+        std::cout << team_id << " have tile point: " << tile_point << std::endl;
+        return tile_point;
+    }
+
+    int area_point_calculate(int team_id) {
+        if (area_count_.empty()) {
+            // init
+            for (int i = 0; i < height_; i++) {
+                std::vector<bool> horizonal_vector(width_, false);
+                area_count_.push_back(horizonal_vector);
+            }
+        } else {
+            for (int i = 0; i < height_; i++) {
+                for (int j = 0; j < width_; j++) {
+                    area_count_[i][j] = false;
+                }
+            }
+        }
+
+        for (int i = 0; i < height_; i++) {
+            tile_not_surrounded(team_id, i, 0);
+            tile_not_surrounded(team_id, i, width_ - 1);
+        }
+
+        for (int i = 0; i < width_; i++) {
+            tile_not_surrounded(team_id, 0, i);
+            tile_not_surrounded(team_id, height_ - 1, i);
+        }
+
+        int area_point = 0;
+        for (int i = 0; i < height_; i++) {
+            for (int j = 0; j < width_; j++) {
+                if (game_field_[i][j].have_team != team_id && !area_count_[i][j]) {
+                    area_point += abs(game_field_[i][j].score);
+                }
+            }
+        }
+        std::cout << team_id << " have area point: " << area_point << std::endl;
+        return area_point;
+    }
+
 public:
+    int get_started_unix_time() {return started_unix_time_;}
+    int get_interval_millisecond() {return interval_millisecond_;}
+    int get_turn_millisecond() {return turn_millisecond_;};
+    // I use boost::property_tree instead of picojson to read json files. I will rewrite picojson if I'm free.
     void initialize_fields() {
         if (init_check_) {
             std::cout << "Already init" << std::endl;
@@ -108,8 +162,8 @@ public:
                     data.get_optional<int>("agentID").get(),
                     0,
                     0,
-                    -1,
-                    0,
+                    1,
+                    turn_,
                     "stay"
                 });
             }
@@ -121,56 +175,8 @@ public:
             area_point_calculate(i);
         }
 
-        started_unix_time_ = time(nullptr);
+        started_unix_time_ = time(nullptr) + between;
         std::cout << "unix time: " << started_unix_time_ << std::endl;
-    }
-
-    int tile_point_calculate(int team_id) {
-        int tile_point = 0;
-        for (int i = 0; i < height_; i++) {
-            for (int j = 0; j < width_; j++) {
-                if (game_field_[i][j].have_team == team_id) tile_point += game_field_[i][j].score;
-            }
-        }
-        std::cout << team_id << " have tile point: " << tile_point << std::endl;
-        return tile_point;
-    }
-
-    int area_point_calculate(int team_id) {
-        if (area_count_.empty()) {
-            // init
-            for (int i = 0; i < height_; i++) {
-                std::vector<bool> horizonal_vector(width_, false);
-                area_count_.push_back(horizonal_vector);
-            }
-        } else {
-            for (int i = 0; i < height_; i++) {
-                for (int j = 0; j < width_; j++) {
-                    area_count_[i][j] = false;
-                }
-            }
-        }
-
-        for (int i = 0; i < height_; i++) {
-            tile_not_surrounded(team_id, i, 0);
-            tile_not_surrounded(team_id, i, width_ - 1);
-        }
-
-        for (int i = 0; i < width_; i++) {
-            tile_not_surrounded(team_id, 0, i);
-            tile_not_surrounded(team_id, height_ - 1, i);
-        }
-
-        int area_point = 0;
-        for (int i = 0; i < height_; i++) {
-            for (int j = 0; j < width_; j++) {
-                if (game_field_[i][j].have_team != team_id && !area_count_[i][j]) {
-                    area_point += abs(game_field_[i][j].score);
-                }
-            }
-        }
-        std::cout << team_id << " have area point: " << area_point << std::endl;
-        return area_point;
     }
 
     picojson::array get_game_information() {
@@ -270,6 +276,7 @@ public:
                 int agent_id = static_cast<int>(one_agent["agentID"].get<double>());
                 int action_size = agent_actions_[0].size();
                 bool agent_id_check = false;
+                // action update
                 for (int i = 0; i < action_size * 2; i++) {
                     std::vector<Actions>::iterator actions = agent_actions_[i / action_size].begin() + (i % action_size);
                     if ((*actions).agent_id == agent_id) {
@@ -290,4 +297,78 @@ public:
 
         return result;
     }
+
+
+    void next_turn() {
+        int action_size = agent_actions_[0].size();
+        // stay overwrite
+        for (int i = 0; i < action_size * 2; i++) {
+            std::vector<Actions>::iterator action = agent_actions_[i / action_size].begin() + (i % action_size);
+            if ((*action).type == "stay") {
+                if ((*action).dx != 0 || (*action).dy != 0) (*action).apply = -1;
+            }
+        }
+
+        // check next turn coordinate overlap
+        for (int i = 0; i < action_size * 2; i++) {
+            std::vector<Actions>::iterator first_action = agent_actions_[i / action_size].begin() + (i % action_size);
+            std::vector<Agent>::iterator first_agent = agent_coordinate_[i / action_size].begin() + (i % action_size);
+            int first_agent_next_x = (*first_action).dx + (*first_agent).x;
+            int first_agent_next_y = (*first_action).dy + (*first_agent).y;
+            if (first_agent_next_x == 0 || first_agent_next_x > width_) {
+                (*first_action).apply = -1;
+            }
+            if (first_agent_next_y == 0 || first_agent_next_y > height_) {
+                (*first_action).apply = -1;
+            }
+            for (int j = i + 1; j < action_size * 2; j++) {
+                std::vector<Actions>::iterator second_action = agent_actions_[j / action_size].begin() + (j % action_size);
+                std::vector<Agent>::iterator second_agent = agent_coordinate_[j / action_size].begin() + (j % action_size);
+
+                int second_agent_next_x = (*second_action).dx + (*second_agent).x;
+                int second_agent_next_y = (*second_action).dy + (*second_agent).y;
+                if (first_agent_next_x == second_agent_next_x && first_agent_next_y == second_agent_next_y) {
+                    if ((*first_action).type != "stay") (*first_action).apply = 0;
+                    if ((*second_action).type != "stay") (*second_action).apply = 0;
+                }
+            }
+        }
+
+        // move agent
+        for (int i = 0; i < action_size * 2; i++) {
+            std::vector<Actions>::iterator action = agent_actions_[i / action_size].begin() + (i % action_size);
+            if ((*action).apply != 1) continue;
+            std::vector<Agent>::iterator agent = agent_coordinate_[i / action_size].begin() + (i % action_size);
+            int agent_next_x = (*action).dx + (*agent).x;
+            int agent_next_y = (*action).dy + (*agent).y;
+            if ((*action).type == "move") {
+                game_field_[(*agent).y - 1][(*agent).x - 1].on_agent = false;
+                game_field_[agent_next_y - 1][agent_next_x - 1].have_team = teamID_[i / action_size];
+                game_field_[agent_next_y - 1][agent_next_x - 1].on_agent = true;
+                (*agent).x = agent_next_x;
+                (*agent).y = agent_next_y;
+            } else if ((*action).type == "remove") {
+                game_field_[agent_next_y - 1][agent_next_x - 1].have_team = 0;
+            }
+        }
+
+        // history input
+        for (int i = 0; i < action_size * 2; i++) {
+            std::vector<Actions>::iterator action = agent_actions_[i / action_size].begin() + (i % action_size);
+            (*action).turn = turn_;
+            actions_history_.push_back((*action));
+            // init
+            (*action).dx = 0;
+            (*action).dy = 0;
+            (*action).apply = 1;
+            (*action).type = "stay";
+            (*action).turn = turn_;
+        }
+        ++turn_;
+        
+
+    }
+    
+    bool end_turn() {return (turn_ == max_turns_);}
+    
 };

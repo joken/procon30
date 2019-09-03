@@ -20,7 +20,9 @@ int main() {
         net::io_context ioc(1);
         tcp::acceptor accepter(ioc, tcp::endpoint(address, port));
         boost::system::error_code error;
+        std::thread th(game_progress, gamebord);
         while(true) {
+            std::cout << 1 << std::endl;
             tcp::socket socket(ioc);
             accepter.accept(socket, error);
             std::thread{std::bind(
@@ -28,6 +30,7 @@ int main() {
                 std::move(socket), gamebord)}.detach();
             std::cout << error << std::endl;
         }
+        th.join();
     } catch (std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;

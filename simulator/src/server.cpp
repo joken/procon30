@@ -113,3 +113,34 @@ void serverSession(tcp::socket& socket, GameBord* gamebord) {
     handle_request(std::move(req), lambda, gamebord);
     socket.shutdown(tcp::socket::shutdown_send, ec);
 }
+
+void game_progress(GameBord* gamebord) {
+    int now_unix_time = time(nullptr);
+    bool game_start = false;
+    std::chrono::high_resolution_clock::time_point start_clock;
+    std::chrono::milliseconds elapsed_time;
+    int end_turn_millisecond = gamebord->get_interval_millisecond() + gamebord->get_turn_millisecond();
+    bool progress_flag = false;
+    while(true) {
+        now_unix_time = time(nullptr);
+        if (now_unix_time - gamebord->get_started_unix_time() == 0 && !game_start) {
+            start_clock = std::chrono::high_resolution_clock::now();
+            game_start = true;
+        }
+        if (!game_start) continue; // under code run if game start
+
+        elapsed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start_clock);
+        if (elapsed_time.count() >= gamebord->get_interval_millisecond()) {
+            if (!progress_flag) {
+                std::cout << "next turn" << std::endl;
+                gamebord->next_turn();
+                progress_flag = true;
+            }
+            if (elapsed_time.count() >= end_turn_millisecond) {
+                start_clock = std::chrono::high_resolution_clock::now();
+                progress_flag = false;
+            } 
+        }
+        if (gamebord->end_turn()) break;
+    }
+}
