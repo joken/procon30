@@ -46,8 +46,23 @@ handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& 
         res.prepare_payload();
         return res;
     };
-
+    
     picojson::object result_json;
+    if (req.method() == http::verb::post) {
+        if (req.target() == "/matches/1/action") {
+            std::cout << "Status: post action" << std::endl;
+            std::cout << req.body() << std::endl;
+            picojson::value input_json;
+            picojson::parse(input_json, req.body());
+            return send(object_response(http::status::ok, gamebord->set_agent_actions(input_json)));
+        } else {
+            result_json.insert(std::make_pair("status", "Invalid URL"));
+            std::cout << "Status: Invalid URL" << std::endl;
+            return send(object_response(http::status::bad_request, result_json));
+        }
+    }
+
+    // get request
     if (req.target() == "/ping") {
         result_json.insert(std::make_pair("status", "OK"));
         std::cout << "Status: get Ping" << std::endl;

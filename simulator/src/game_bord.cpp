@@ -106,11 +106,11 @@ public:
                 });
                 agent_actions_[id % 2].push_back({
                     data.get_optional<int>("agentID").get(),
-                    data.get_optional<int>("x").get(),
-                    data.get_optional<int>("y").get(),
+                    0,
+                    0,
                     -1,
                     0,
-                    "0"
+                    "stay"
                 });
             }
         }
@@ -257,6 +257,37 @@ public:
         }
         result.insert(std::make_pair("turn", picojson::value(static_cast<double>(turn_))));
         result.insert(std::make_pair("width", picojson::value(static_cast<double>(width_))));
+        return result;
+    }
+
+    picojson::object set_agent_actions(picojson::value input) {
+        picojson::object result;
+        picojson::array input_actions = input.get<picojson::object>()["actions"].get<picojson::array>();
+        {
+            picojson::array result_actions;
+            for (picojson::array::iterator it = input_actions.begin(); it != input_actions.end(); it++) {
+                picojson::object one_agent = it->get<picojson::object>();
+                int agent_id = static_cast<int>(one_agent["agentID"].get<double>());
+                int action_size = agent_actions_[0].size();
+                bool agent_id_check = false;
+                for (int i = 0; i < action_size * 2; i++) {
+                    std::vector<Actions>::iterator actions = agent_actions_[i / action_size].begin() + (i % action_size);
+                    if ((*actions).agent_id == agent_id) {
+                        (*actions).dx = static_cast<int>(one_agent["dx"].get<double>());
+                        (*actions).dy = static_cast<int>(one_agent["dy"].get<double>());
+                        (*actions).type = one_agent["type"].get<std::string>();
+                        (*actions).turn = turn_;
+                        agent_id_check = true;
+                        break;
+                    }
+                }
+                if (!agent_id_check) continue;
+                one_agent.insert(std::make_pair("turn", picojson::value(static_cast<double>(turn_))));
+                result_actions.push_back(picojson::value(one_agent));
+            }
+            result.insert(std::make_pair("actions", picojson::value(result_actions)));
+        }
+
         return result;
     }
 };
