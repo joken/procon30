@@ -16,7 +16,7 @@ int main() {
         auto const address = net::ip::make_address("127.0.0.1");
         auto const port = static_cast<short unsigned int>(8081);
         GameBord *gamebord = new GameBord;
-        gamebord->initalize_fields();
+        gamebord->initialize_fields();
         net::io_context ioc(1);
         tcp::acceptor accepter(ioc, tcp::endpoint(address, port));
         boost::system::error_code error;

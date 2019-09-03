@@ -38,8 +38,10 @@ private:
     std::string match_name_ = "temporary";
     int turn_millisecond_ = 1 * 1000;
     int max_turns_ = 100;
-    
-    int unix_time_;
+    int started_unix_time_;
+    // game history
+    std::vector<Actions> agent_actions_[2];
+    std::vector<Actions> actions_history_;
     
 
     void tile_not_surrounded(int team_id, int x, int y) {
@@ -52,7 +54,7 @@ private:
     }
 
 public:
-    void initalize_fields() {
+    void initialize_fields() {
         if (init_check_) {
             std::cout << "Already init" << std::endl;
             return;
@@ -68,9 +70,9 @@ public:
         std::cout << "height: " << height_ << std::endl;
 
         // Set field score.
-        for (auto first_nest : filed_json.get_child("points")) {
+        for (const auto& first_nest : filed_json.get_child("points")) {
             std::vector<Tile> horizontal_vector;
-            for (auto second_nest : first_nest.second) {
+            for (const auto& second_nest : first_nest.second) {
                 int score = second_nest.second.get_optional<int>("").get();
                 horizontal_vector.push_back({
                     score, 0, false
@@ -81,8 +83,8 @@ public:
 
         // Set tiles
         std::pair<int, int> coordinate = {0, 0}; // x, y
-        for (auto first_nest : filed_json.get_child("tiled")) {
-            for (auto second_nest : first_nest.second) {
+        for (const auto& first_nest : filed_json.get_child("tiled")) {
+            for (const auto& second_nest : first_nest.second) {
                 int team = second_nest.second.get_optional<int>("").get();
                 game_field_[coordinate.first][coordinate.second].have_team = team;
                 ++coordinate.second;
@@ -102,20 +104,28 @@ public:
                     data.get_optional<int>("x").get(),
                     data.get_optional<int>("y").get()
                 });
+                agent_actions_[id % 2].push_back({
+                    data.get_optional<int>("agentID").get(),
+                    data.get_optional<int>("x").get(),
+                    data.get_optional<int>("y").get(),
+                    -1,
+                    0,
+                    "0"
+                });
             }
         }
 
         // confirm
-        for (int i = 0; i < 2; i++) {
-            tile_point_caluculate(teamID_[i]);
-            area_point_calculate(teamID_[i]);
+        for (int i : teamID_) {
+            tile_point_calculate(i);
+            area_point_calculate(i);
         }
 
-        unix_time_ = time(nullptr);
-        std::cout << "unix time: " << unix_time_ << std::endl;
+        started_unix_time_ = time(nullptr);
+        std::cout << "unix time: " << started_unix_time_ << std::endl;
     }
 
-    int tile_point_caluculate(int team_id) {
+    int tile_point_calculate(int team_id) {
         int tile_point = 0;
         for (int i = 0; i < height_; i++) {
             for (int j = 0; j < width_; j++) {
@@ -177,5 +187,76 @@ public:
         match_list.push_back(picojson::value(match));
         
         return match_list;
+    }
+
+    picojson::object get_game_state() {
+        picojson::object result; // final return
+        // actions
+        {
+            picojson::array history;
+            for (Actions& action : actions_history_) {
+                picojson::object one_action;
+                one_action.insert(std::make_pair("agentID", picojson::value(static_cast<double>(action.agent_id))));
+                one_action.insert(std::make_pair("dx", picojson::value(static_cast<double>(action.dx))));
+                one_action.insert(std::make_pair("dy", picojson::value(static_cast<double>(action.dy))));
+                one_action.insert(std::make_pair("type", picojson::value(action.type)));
+                one_action.insert(std::make_pair("apply", picojson::value(static_cast<double>(action.apply))));
+                one_action.insert(std::make_pair("turn", picojson::value(static_cast<double>(action.turn))));
+                history.push_back(picojson::value(one_action));
+            }
+            result.insert(std::make_pair("actions", picojson::value(history)));
+        }
+        result.insert(std::make_pair("height", picojson::value(static_cast<double>(height_))));
+        // points
+        {
+            picojson::array field_point;
+            for (std::vector<Tile> &horizontal_vector : game_field_) {
+                picojson::array horizontal_point;
+                for (Tile &value : horizontal_vector) {
+                    horizontal_point.push_back(picojson::value(static_cast<double>(value.score)));
+                }
+                field_point.push_back(picojson::value(horizontal_point));
+            }
+            result.insert(std::make_pair("points", picojson::value(field_point)));
+        }
+        result.insert(std::make_pair("startedAtUnixTime", picojson::value(static_cast<double>(started_unix_time_))));
+        // teams
+        {
+            picojson::array teams;
+            for (int i = 0; i < 2; i++) {
+                picojson::object one_team;
+                {
+                    picojson::array agents;
+                    for (Agent &one_agent : agent_coordinate_[i]) {
+                        picojson::object agent;
+                        agent.insert(std::make_pair("agentID", picojson::value(static_cast<double>(one_agent.agent_id))));
+                        agent.insert(std::make_pair("x", picojson::value(static_cast<double>(one_agent.x))));
+                        agent.insert(std::make_pair("y", picojson::value(static_cast<double>(one_agent.y))));
+                        agents.push_back(picojson::value(agent));
+                    }
+                    one_team.insert(std::make_pair("agents", picojson::value(agents)));
+                }
+                one_team.insert(std::make_pair("areaPoint", picojson::value(static_cast<double>(area_point_calculate(teamID_[i])))));
+                one_team.insert(std::make_pair("teamID", picojson::value(static_cast<double>(teamID_[i]))));
+                one_team.insert(std::make_pair("tilePoint", picojson::value(static_cast<double>(tile_point_calculate(teamID_[i])))));
+                teams.push_back(picojson::value(one_team));
+            }
+            result.insert(std::make_pair("teams", picojson::value(teams)));
+        }
+        // tiled
+        {
+            picojson::array field_tile;
+            for (std::vector<Tile> &horizontal_vector : game_field_) {
+                picojson::array horizontal_point;
+                for (Tile &value : horizontal_vector) {
+                    horizontal_point.push_back(picojson::value(static_cast<double>(value.have_team)));
+                }
+                field_tile.push_back(picojson::value(horizontal_point));
+            }
+            result.insert(std::make_pair("tiled", picojson::value(field_tile)));
+        }
+        result.insert(std::make_pair("turn", picojson::value(static_cast<double>(turn_))));
+        result.insert(std::make_pair("width", picojson::value(static_cast<double>(width_))));
+        return result;
     }
 };
