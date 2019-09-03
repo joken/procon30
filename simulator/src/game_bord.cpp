@@ -34,16 +34,14 @@ private:
     std::vector<std::vector<bool>> area_count_;
     // information
     int matchID_ = 1;
-    int interval_millisecond_ = 10 * 1000;
+    int interval_millisecond_;
     std::string match_name_ = "temporary";
-    int turn_millisecond_ = 5 * 1000;
-    int max_turns_ = 100;
+    int turn_millisecond_;
+    int max_turn_;
     int started_unix_time_;
     // game history
     std::vector<Actions> agent_actions_[2];
     std::vector<Actions> actions_history_;
-    // start parameter
-    int between = 1;
     
 
     void tile_not_surrounded(int team_id, int x, int y) {
@@ -108,7 +106,10 @@ public:
     int get_interval_millisecond() {return interval_millisecond_;}
     int get_turn_millisecond() {return turn_millisecond_;};
     // I use boost::property_tree instead of picojson to read json files. I will rewrite picojson if I'm free.
-    void initialize_fields() {
+    void initialize_fields(int interval_millisecond, int turn_millisecond, int max_turn, int between) {
+        interval_millisecond_ = interval_millisecond;
+        turn_millisecond_ = turn_millisecond;
+        max_turn_ = max_turn;
         if (init_check_) {
             std::cout << "Already init" << std::endl;
             return;
@@ -188,7 +189,7 @@ public:
         match.insert(std::make_pair("matchTo", picojson::value(match_name_)));
         match.insert(std::make_pair("teamID", picojson::value(static_cast<double>(teamID_[0]))));
         match.insert(std::make_pair("turnMillis", picojson::value(static_cast<double>(turn_millisecond_))));
-        match.insert(std::make_pair("turns", picojson::value(static_cast<double>(max_turns_))));
+        match.insert(std::make_pair("turns", picojson::value(static_cast<double>(max_turn_))));
         
         match_list.push_back(picojson::value(match));
         
@@ -370,6 +371,6 @@ public:
 
     }
     
-    bool end_turn() {return (turn_ == max_turns_);}
+    bool end_turn() {return (turn_ == max_turn_);}
     
 };

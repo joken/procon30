@@ -1,5 +1,9 @@
 # procon30
 30th KOSEN Programming Contest
 
-## Library
-Using picojson
+## Simulator
+### Using Library
+picojson v1.3.0
+
+### Using parameter
+$ procon30-simulator (interval millisecond) (turn millisecond) (max turn) (between)
