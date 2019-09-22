@@ -106,7 +106,7 @@ public:
     int get_interval_millisecond() {return interval_millisecond_;}
     int get_turn_millisecond() {return turn_millisecond_;};
     // I use boost::property_tree instead of picojson to read json files. I will rewrite picojson if I'm free.
-    void initialize_fields(int interval_millisecond, int turn_millisecond, int max_turn, int between) {
+    void initialize_fields(int interval_millisecond, int turn_millisecond, int max_turn, int between, char filepath[]) {
         interval_millisecond_ = interval_millisecond;
         turn_millisecond_ = turn_millisecond;
         max_turn_ = max_turn;
@@ -114,11 +114,8 @@ public:
             std::cout << "Already init" << std::endl;
             return;
         }
-        std::cout << "Input filed json file." << std::endl;
-        std::string filename;
-        std::cin >> filename;
         pt::ptree filed_json;
-        read_json(filename, filed_json);
+        read_json(filepath, filed_json);
         width_ = filed_json.get_optional<int>("width").get();
         height_ = filed_json.get_optional<int>("height").get();
         std::cout << "width: " << width_ << std::endl;
