@@ -22,7 +22,7 @@ std::string picojson_to_string(picojson::array arr) {
 }
 
 template<class Body, class Allocator,class Send, class GameBord> void
-handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
+handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord, bool time_check)
 {
     auto const object_response =
     [&req](http::status status, picojson::object sent_json) {
@@ -59,6 +59,13 @@ handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& 
             std::cout << "Status: Invalid URL" << std::endl;
             return send(object_response(http::status::bad_request, result_json));
         }
+    }
+
+    if (req.target() == "/next_step" && !time_check) {
+        result_json.insert(std::make_pair("next step", "OK"));
+        std::cout << "Status: next step" << std::endl;
+        gamebord->next_turn();
+        return send(object_response(http::status::ok, result_json));
     }
 
     // get request
@@ -101,7 +108,7 @@ template<class Stream> struct send_lambda {
 };
 
 // HTTP server connect
-void serverSession(tcp::socket& socket, GameBord* gamebord) {
+void serverSession(tcp::socket& socket, GameBord* gamebord, bool time_check) {
     beast::error_code ec;
     beast::flat_buffer buffer;
     send_lambda<tcp::socket> lambda{socket, ec};
@@ -109,7 +116,7 @@ void serverSession(tcp::socket& socket, GameBord* gamebord) {
     http::request<http::string_body> req;
     http::read(socket, buffer, req, ec);
 
-    handle_request(std::move(req), lambda, gamebord);
+    handle_request(std::move(req), lambda, gamebord, time_check);
     socket.shutdown(tcp::socket::shutdown_send, ec);
 }
 

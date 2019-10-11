@@ -304,7 +304,11 @@ public:
         for (int i = 0; i < action_size * 2; i++) {
             std::vector<Actions>::iterator action = agent_actions_[i / action_size].begin() + (i % action_size);
             if ((*action).type == "stay") {
-                if ((*action).dx != 0 || (*action).dy != 0) (*action).apply = -1;
+                if ((*action).dx != 0 || (*action).dy != 0) {
+                    (*action).dx = 0;
+                    (*action).dy = 0;
+                    (*action).apply = -1;
+                } 
             }
         }
 
@@ -327,8 +331,8 @@ public:
                 int second_agent_next_x = (*second_action).dx + (*second_agent).x;
                 int second_agent_next_y = (*second_action).dy + (*second_agent).y;
                 if (first_agent_next_x == second_agent_next_x && first_agent_next_y == second_agent_next_y) {
-                    if ((*first_action).type != "stay") (*first_action).apply = 0;
-                    if ((*second_action).type != "stay") (*second_action).apply = 0;
+                    (*first_action).apply = 0;
+                    (*second_action).apply = 0;
                 }
             }
         }
