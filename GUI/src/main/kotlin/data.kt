@@ -44,3 +44,14 @@ data class TooEarly(
     val status: String,
     val startAtUnixTime: Long
 )
+
+data class DoAction(
+    val agentID: Long,
+    val dx: Int,
+    val dy: Int,
+    val type: String
+)
+
+data class Actions(
+    val actions: List<DoAction>
+)

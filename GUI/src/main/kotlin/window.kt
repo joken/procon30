@@ -8,12 +8,14 @@ import javax.swing.border.LineBorder
 val CELL_SIZE = 30
 
 // GUIウィンドウ
-class Window(matchID: Long, private val ownTeamID: Long){
+class Window(val matchID: Long, private val ownTeamID: Long){
 
     private val gamePanel = JPanel()                        // ゲーム盤面のパネル
     private var pointPanels: List<List<PointPanel>>? = null // 各ポイントの書かれたパネル
     private val statusPanel = StatusPanel(ownTeamID)        // 各チームの情報の書かれたパネル
     private val frame: JFrame = JFrame("Procon30: $matchID")     // windowの側
+    private val inputPanelsPanel = JPanel()
+    private var inputPanels: List<InputPanel>? = null
 
     init {
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
@@ -24,17 +26,18 @@ class Window(matchID: Long, private val ownTeamID: Long){
 
         panel.add(statusPanel, BorderLayout.NORTH)
 
+        panel.add(inputPanelsPanel, BorderLayout.EAST)
+
         gamePanel.preferredSize = Dimension(500, 500)
         panel.add(gamePanel, BorderLayout.CENTER)
-
 
         frame.isVisible = true
     }
 
     // 取得したデータでゲーム情報の更新を行う
     fun updateGame(match: Match){
-        if (pointPanels == null){
-            gamePanel.preferredSize = Dimension(CELL_SIZE*match.width, CELL_SIZE*match.height)
+        if (pointPanels == null) {
+            gamePanel.preferredSize = Dimension(CELL_SIZE * match.width, CELL_SIZE * match.height)
             gamePanel.layout = GridLayout(match.height, match.width)
             pointPanels = match.points.map {
                 it.map { it1 ->
@@ -42,9 +45,21 @@ class Window(matchID: Long, private val ownTeamID: Long){
                 }
             }
             pointPanels?.forEach {
-                it.forEach{ it1 ->
+                it.forEach { it1 ->
                     gamePanel.add(it1)
                 }
+            }
+            val agentCount = match.teams[0].agents.size
+            inputPanelsPanel.layout = GridLayout(agentCount, 1)
+            match.teams.forEach {
+                if (it.teamID == ownTeamID) {
+                    inputPanels = it.agents.map { agent ->
+                        val ip = InputPanel(agent.agentID, ownTeamID, matchID)
+                        inputPanelsPanel.add(ip)
+                        ip
+                    }
+                }
+                frame.pack()
             }
         }
         match.tiled.forEachIndexed { index1, list ->
@@ -54,16 +69,16 @@ class Window(matchID: Long, private val ownTeamID: Long){
         }
 
         pointPanels!!.forEach {
-            it.forEach{ it1 ->
+            it.forEach { it1 ->
                 it1.agentID = null
             }
         }
 
         val agent2Position = HashMap<Long, Agent>()
 
-        match.teams.forEach{
+        match.teams.forEach {
             it.agents.forEach { agent ->
-                pointPanels!![agent.y-1][agent.x-1].setAgent(agent, it.teamID == ownTeamID)
+                pointPanels!![agent.y - 1][agent.x - 1].setAgent(agent, it.teamID == ownTeamID)
                 agent2Position[agent.agentID] = agent
             }
         }
@@ -76,8 +91,11 @@ class Window(matchID: Long, private val ownTeamID: Long){
         }
 
         statusPanel.updateStatus(match.teams)
+        inputPanels?.forEach {
+            it.update(match)
+        }
         gamePanel.repaint()
-        frame.pack()
+
     }
 
     private fun getPanelColor(tiled: Int): Color{
@@ -111,13 +129,13 @@ class PointPanel(point: Int): JPanel(){
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
         if (agentID != null){
-            val g2 = g as Graphics2D
-            g.drawString(agentID.toString(), 10, 12)
             if (agentIsOwnTeam) {
+                g.drawString(agentID.toString(), 10, 12)
                 g.color = Color(50, 50, 200, 70)
             }else{
                 g.color = Color(200, 50, 50, 70)
             }
+            g as Graphics2D
             g.stroke = BasicStroke(3.0f)
             g.drawOval(5, 5, 20, 20)
             if (action != null){
@@ -134,7 +152,7 @@ class PointPanel(point: Int): JPanel(){
                                 g.color = Color.YELLOW
                             }
                         }
-                        g.drawOval(CELL_SIZE/2-action!!.dx*10, CELL_SIZE/2-action!!.dy*10, 5, 5)
+                        g.drawOval(CELL_SIZE/2+action!!.dx*10-5/2, CELL_SIZE/2+action!!.dy*10-5/2, 5, 5)
                     }
                     "remove" -> {
                         when (action!!.apply) {
@@ -148,7 +166,7 @@ class PointPanel(point: Int): JPanel(){
                                 g.color = Color.ORANGE
                             }
                         }
-                        g.drawOval(CELL_SIZE/2+action!!.dx*10, CELL_SIZE/2+action!!.dy*10, 5, 5)
+                        g.drawOval(CELL_SIZE/2+action!!.dx*10-5/2, CELL_SIZE/2+action!!.dy*10-5/2, 5, 5)
                     }
                     "stay" -> {
                         when (action!!.apply) {
