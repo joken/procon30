@@ -442,7 +442,7 @@ MAX_TURN = 30
 # parameter
 BATCH_SIZE = 10
 LEARNING_NUMBER = 50
-PRODUCTION = False
+PRODUCTION = True
 DISCOUNT = 0.95
 
 DQN_MODE = True
@@ -586,7 +586,14 @@ if __name__ == "__main__":
         plt.plot(enemyscore_list)
         plt.savefig(basedir + dirname + "/" + "all-episode.png")
     else:
-        MATCH_ID = int(sys.argv[1])
+        if sys.argv[1] == "local":
+            MATCH_ID = 1
+            TOKEN = ""
+        else:
+            MATCH_ID = int(sys.argv[1])
+            with open("./token.txt") as f:
+                TOKEN = f.read()
+            BASE_URL = "http://10.10.52.252"
         get_game_team_id()
         get_game_set(TEAM_ID)
         main_model = create_Qmodel()
