@@ -102,7 +102,7 @@ private:
     }
 
 public:
-    int get_started_unix_time() {return started_unix_time_;}
+    int get_start_unix_time() {return started_unix_time_;}
     int get_interval_millisecond() {return interval_millisecond_;}
     int get_turn_millisecond() {return turn_millisecond_;};
     // I use boost::property_tree instead of picojson to read json files. I will rewrite picojson if I'm free.
@@ -304,7 +304,11 @@ public:
         for (int i = 0; i < action_size * 2; i++) {
             std::vector<Actions>::iterator action = agent_actions_[i / action_size].begin() + (i % action_size);
             if ((*action).type == "stay") {
-                if ((*action).dx != 0 || (*action).dy != 0) (*action).apply = -1;
+                if ((*action).dx != 0 || (*action).dy != 0) {
+                    (*action).dx = 0;
+                    (*action).dy = 0;
+                    (*action).apply = -1;
+                } 
             }
         }
 
@@ -327,8 +331,8 @@ public:
                 int second_agent_next_x = (*second_action).dx + (*second_agent).x;
                 int second_agent_next_y = (*second_action).dy + (*second_agent).y;
                 if (first_agent_next_x == second_agent_next_x && first_agent_next_y == second_agent_next_y) {
-                    if ((*first_action).type != "stay") (*first_action).apply = 0;
-                    if ((*second_action).type != "stay") (*second_action).apply = 0;
+                    (*first_action).apply = 0;
+                    (*second_action).apply = 0;
                 }
             }
         }
@@ -363,9 +367,6 @@ public:
             (*action).type = "stay";
             (*action).turn = turn_;
         }
-        
-        
-
     }
     
     bool end_turn() {return (turn_ == max_turn_);}

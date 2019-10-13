@@ -22,7 +22,7 @@ std::string picojson_to_string(picojson::array arr) {
 }
 
 template<class Body, class Allocator,class Send, class GameBord> void
-handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord)
+handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send, GameBord* gamebord, bool time_check)
 {
     auto const object_response =
     [&req](http::status status, picojson::object sent_json) {
@@ -61,16 +61,27 @@ handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& 
         }
     }
 
+    if (req.target() == "/next_step" && !time_check) {
+        result_json.insert(std::make_pair("next step", "OK"));
+        std::cout << "Status: next step" << std::endl;
+        gamebord->next_turn();
+        return send(object_response(http::status::ok, result_json));
+    }
+
     // get request
     if (req.target() == "/ping") {
         result_json.insert(std::make_pair("status", "OK"));
         std::cout << "Status: get Ping" << std::endl;
         return send(object_response(http::status::ok, result_json));
-    } else if (req.target() == "/matches") {
+    } else if (req.target() == "/matches/") {
         std::cout << "Status: get game information acquisition" << std::endl;
         return send(array_response(http::status::ok, gamebord->get_game_information()));
     } else if (req.target() == "/matches/1") {
         std::cout << "Status: get match" << std::endl;
+        int remain_time = gamebord->get_start_unix_time() - time(nullptr);
+        result_json.insert(std::make_pair("status", "TooEarly"));
+        if (remain_time <= 3) result_json.insert(std::make_pair("startAtUnixTime", static_cast<double>(gamebord->get_start_unix_time())));
+        if (remain_time > 0) return send(object_response(http::status::bad_request, result_json));
         return send(object_response(http::status::ok, gamebord->get_game_state()));
     } else if (req.target() == "/favicon.ico" ) {
         result_json.insert(std::make_pair("status", "Favicon is not found."));
@@ -101,7 +112,7 @@ template<class Stream> struct send_lambda {
 };
 
 // HTTP server connect
-void serverSession(tcp::socket& socket, GameBord* gamebord) {
+void serverSession(tcp::socket& socket, GameBord* gamebord, bool time_check) {
     beast::error_code ec;
     beast::flat_buffer buffer;
     send_lambda<tcp::socket> lambda{socket, ec};
@@ -109,7 +120,7 @@ void serverSession(tcp::socket& socket, GameBord* gamebord) {
     http::request<http::string_body> req;
     http::read(socket, buffer, req, ec);
 
-    handle_request(std::move(req), lambda, gamebord);
+    handle_request(std::move(req), lambda, gamebord, time_check);
     socket.shutdown(tcp::socket::shutdown_send, ec);
 }
 
@@ -122,7 +133,7 @@ void game_progress(GameBord* gamebord) {
     bool progress_flag = false;
     while(true) {
         now_unix_time = time(nullptr);
-        if (now_unix_time - gamebord->get_started_unix_time() == 0 && !game_start) {
+        if (now_unix_time - gamebord->get_start_unix_time() == 0 && !game_start) {
             start_clock = std::chrono::high_resolution_clock::now();
             game_start = true;
         }
