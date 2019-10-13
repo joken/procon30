@@ -1,4 +1,5 @@
 /simulator/build
+/operation/token.txt
 /operation/data
 /operation/field
 /operation/__pycache__

@@ -346,6 +346,11 @@ public:
             int agent_next_y = (*action).dy + (*agent).y;
             if ((*action).type == "move") {
                 game_field_[(*agent).y - 1][(*agent).x - 1].on_agent = false;
+                int panel_have = game_field_[agent_next_y - 1][agent_next_x - 1].have_team;
+                if (!(panel_have == 0 || panel_have == teamID_[i / action_size])) {
+                    (*action).apply = 0;
+                    continue;
+                }
                 game_field_[agent_next_y - 1][agent_next_x - 1].have_team = teamID_[i / action_size];
                 game_field_[agent_next_y - 1][agent_next_x - 1].on_agent = true;
                 (*agent).x = agent_next_x;
