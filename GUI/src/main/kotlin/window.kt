@@ -63,6 +63,7 @@ class Window(matchID: Long, private val ownTeamID: Long){
         }
 
         statusPanel.updateStatus(match.teams)
+        gamePanel.repaint()
         frame.pack()
     }
 
