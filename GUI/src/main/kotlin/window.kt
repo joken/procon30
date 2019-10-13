@@ -1,6 +1,11 @@
 import java.awt.*
+import java.awt.event.MouseEvent
+import java.awt.event.MouseListener
+import java.awt.event.MouseMotionListener
 import javax.swing.*
 import javax.swing.border.LineBorder
+import kotlin.math.PI
+import kotlin.math.atan2
 
 val CELL_SIZE = 30
 
@@ -41,11 +46,12 @@ class Window(val matchID: Long, private val ownTeamID: Long){
             gamePanel.layout = GridLayout(match.height, match.width)
             pointPanels = match.points.map {
                 it.map { it1 ->
-                    PointPanel(it1)
+                    PointPanel(it1, pointPanels, postButton)
                 }
             }
             pointPanels?.forEach {
                 it.forEach { it1 ->
+                    it1.pointPanels = pointPanels
                     gamePanel.add(it1)
                 }
             }
@@ -70,7 +76,7 @@ class Window(val matchID: Long, private val ownTeamID: Long){
 
         pointPanels!!.forEach {
             it.forEach { it1 ->
-                it1.agentID = null
+                it1.agent = null
             }
         }
 
@@ -107,13 +113,15 @@ class Window(val matchID: Long, private val ownTeamID: Long){
     }
 }
 
-class PointPanel(point: Int): JPanel(){
+class PointPanel(point: Int, var pointPanels: List<List<PointPanel>>? = null, postButton: PostButton?=null): JPanel(){
 
-    var agentID: Long? = null
+//    var agentID: Long? = null
+    var agent: Agent? = null
     var agentIsOwnTeam = false
     var action: Action? = null
 
     init {
+        this.isFocusable = true
         this.layout = BorderLayout()
         this.border = LineBorder(Color.BLACK)
         val pointLabel = JLabel(point.toString()).also {
@@ -127,16 +135,71 @@ class PointPanel(point: Int): JPanel(){
         this.preferredSize = Dimension(CELL_SIZE, CELL_SIZE)
         this.minimumSize = Dimension(CELL_SIZE, CELL_SIZE)
         this.add(pointLabel)
+
+        val mouseMotionListener = object: MouseMotionListener, MouseListener {
+            var clickX: Int = 0
+            var clickY: Int = 0
+            override fun mousePressed(e: MouseEvent) {
+                clickX = e.x
+                clickY = e.y
+                println("clicked $clickX $clickY")
+            }
+            override fun mouseReleased(e: MouseEvent) {
+                if(agent == null){
+                    return
+                }
+                val x = e.x
+                val y = e.y
+                val width = this@PointPanel.size.width
+                val height = this@PointPanel.size.height
+                val dx = x - clickX - width/2
+                val dy = y - clickY - height/2
+                println("$y $clickY $dy")
+                val theta = atan2(dy.toDouble(), dx.toDouble())
+                println("${dy.toDouble()} ${dx.toDouble()}")
+                println(theta)
+                val (ddx, ddy) = theta2vec(theta)
+                println("$ddx $ddy")
+
+                val doAction = DoAction(agent!!.agentID, ddx, ddy, chooseMoveOrRemove(ddx, ddy))
+                println(doAction)
+                (postButton?.actions?.actions as MutableList?)?.add(doAction)
+            }
+            override fun mouseDragged(e: MouseEvent){
+                val g = this@PointPanel.graphics
+                g.color = Color.DARK_GRAY
+                g.drawLine(clickX, clickY, e.x, e.y)
+            }
+
+            override fun mouseMoved(e: MouseEvent?){}
+            override fun mouseEntered(e: MouseEvent?){}
+            override fun mouseExited(e: MouseEvent?){}
+            override fun mouseClicked(e: MouseEvent?){}
+        }
+
+        this.addMouseMotionListener(mouseMotionListener)
+        this.addMouseListener(mouseMotionListener)
+    }
+
+    fun chooseMoveOrRemove(dx: Int, dy: Int): String{
+        println(pointPanels!![agent!!.y+dy-1][agent!!.x+dx-1].background)
+        println(Color.RED)
+        return if (pointPanels!![agent!!.y+dy-1][agent!!.x+dx-1].background == Color.RED){
+            "remove"
+        }else{
+            "move"
+        }
     }
 
     fun setAgent(agent: Agent, isOwnTeam: Boolean){
-        agentID = agent.agentID
+//        agentID = agent.agentID
+        this.agent = agent
         agentIsOwnTeam = isOwnTeam
     }
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
-        if (agentID != null){
+        if (agent != null){
             if (agentIsOwnTeam) {
                 g.color = Color.WHITE
             }else{
@@ -147,7 +210,7 @@ class PointPanel(point: Int): JPanel(){
             g.drawOval(5, 5, CELL_SIZE-10, CELL_SIZE-10)
             g.color = Color.BLACK
             if (agentIsOwnTeam)
-                g.drawString(agentID.toString(), 1, 10)
+                g.drawString(agent!!.agentID.toString(), 1, 10)
             if (action != null){
                 when(action!!.type){
                     "move" -> {
@@ -253,5 +316,27 @@ class PostButton(private val matchID: Long): JButton("POST"){
             postAction(matchID, actions)
             (actions.actions as MutableList).clear()
         }
+    }
+}
+
+fun theta2vec(theta: Double): Pair<Int, Int>{
+    return if ((theta <= -7.0/8.0*PI) || (theta >= 7.0/8.0*PI)){
+        Pair(-1, 0)
+    }else if(7.0/8.0*PI >= theta && theta >= 5.0/8.0*PI){
+        Pair(-1, 1)
+    }else if(5.0/8.0*PI >= theta && theta >= 3.0/8.0*PI){
+        Pair(0, 1)
+    }else if(3.0/8.0*PI >= theta && theta >= 1.0/8.0*PI){
+        Pair(1, 1)
+    }else if(1.0/8.0*PI >= theta && theta >= -1.0/8.0*PI){
+        Pair(1, 0)
+    }else if(-1.0/8.0*PI >= theta && theta >= -3.0/8.0*PI){
+        Pair(1, -1)
+    }else if(-3.0/8.0*PI >= theta && theta >= -5.0/8.0*PI){
+        Pair(0, -1)
+    }else if(-5.0/8.0*PI >= theta && theta >= -7.0/8.0*PI){
+        Pair(-1, -1)
+    }else{
+        Pair(0, 0)
     }
 }
