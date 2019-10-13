@@ -8,31 +8,37 @@ import java.util.TimerTask as TimerTask
 var TOKEN = "localhost:8000"
 var DOMAIN = "procon30_example_token"
 
-// TOKEN DOMAIN preMatchIndex
+// TOKEN DOMAIN
 fun main(args: Array<String>) {
     val token = args[0]
     val domain = args[1]
-    val preMatchIndex = args[2].toInt()
 
     println("token = $token")
     println("domain = $domain")
-    println("preMatchIndex = $preMatchIndex")
 
     TOKEN = token
     DOMAIN = domain
 
-    val preMatch = getPreMatch()
-    if(preMatch == null){
+    val preMatchList = getPreMatch()
+    if(preMatchList == null){
         println("cannot get preMatch")
         return
     }
-    println(preMatch)
-    val id = preMatch[preMatchIndex].id
-    val turnMillis = preMatch[preMatchIndex].turnMillis
+    println(preMatchList)
+
+    preMatchList.forEach {
+        startViewer(it)
+    }
+
+}
+
+fun startViewer(preMatch: PreMatch){
+    val id = preMatch.id
+    val turnMillis = preMatch.turnMillis
     val startAtUnixTime = getMatchBeforeStart(id)
     println(startAtUnixTime)
     println(System.currentTimeMillis()/1000L)
-    val window = Window(preMatch[0].teamID)
+    val window = Window(preMatch.id, preMatch.teamID)
     while (System.currentTimeMillis()/1000L < startAtUnixTime){
         Thread.sleep(1000)
     }

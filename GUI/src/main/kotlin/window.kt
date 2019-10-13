@@ -6,12 +6,12 @@ import javax.swing.JPanel
 import javax.swing.border.LineBorder
 
 // GUIウィンドウ
-class Window(private val ownTeamID: Long){
+class Window(matchID: Long, private val ownTeamID: Long){
 
     private val gamePanel = JPanel()                        // ゲーム盤面のパネル
     private var pointPanels: List<List<PointPanel>>? = null // 各ポイントの書かれたパネル
     private val statusPanel = StatusPanel(ownTeamID)        // 各チームの情報の書かれたパネル
-    private val frame: JFrame = JFrame("Procon30")     // windowの側
+    private val frame: JFrame = JFrame("Procon30: $matchID")     // windowの側
 
     init {
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
