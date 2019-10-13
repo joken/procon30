@@ -35,6 +35,7 @@ fun main(args: Array<String>) {
 fun startViewer(preMatch: PreMatch){
     val id = preMatch.id
     val turnMillis = preMatch.turnMillis
+    val intervalMillis = preMatch.intervalMillis
     val startAtUnixTime = getMatchBeforeStart(id)
     println(startAtUnixTime)
     println(System.currentTimeMillis()/1000L)
@@ -58,11 +59,11 @@ fun startViewer(preMatch: PreMatch){
             gameUpdateLoop()
         }
     }
-    timer.scheduleAtFixedRate(task, 0L, turnMillis)
+    timer.scheduleAtFixedRate(task, 0L, turnMillis+intervalMillis)
 }
 
 fun getPreMatch(): List<PreMatch>? {
-    val responce = get("http://$DOMAIN/matches")
+    val responce = get("http://$DOMAIN/matches/")
     return jacksonObjectMapper().readValue(responce ?: return null)
 }
 

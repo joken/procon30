@@ -13,7 +13,8 @@ import javax.swing.JPanel
 import javax.swing.border.LineBorder
 
 
-class InputPanel(val agentID: Long, val teamID: Long, id: Long): JPanel(){
+
+class InputPanel(val agentID: Long, val teamID: Long, id: Long, var postButton: PostButton? = null): JPanel(){
 
     val inputButtonList = listOf(
         listOf(JButton("1"), JButton("2"), JButton("3")),
@@ -38,6 +39,13 @@ class InputPanel(val agentID: Long, val teamID: Long, id: Long): JPanel(){
                 }else {
                     jButton.addActionListener {
                         val doAction = DoAction(agentID, index2-1, index1-1, chooseMoveOrRemove(index1, index2))
+                        println(postButton?.actions?.actions)
+
+                        if (postButton != null) {
+                            (postButton?.actions?.actions as MutableList).add(doAction)
+                            return@addActionListener
+                        }
+
                         val actions = Actions(listOf(doAction))
                         postAction(id, actions)
                     }
@@ -84,7 +92,6 @@ class InputPanel(val agentID: Long, val teamID: Long, id: Long): JPanel(){
     }
 
     private fun chooseMoveOrRemove(index1: Int, index2: Int): String{
-        println(inputButtonList[index1][index2].foreground)
         return if (inputButtonList[index1][index2].foreground == Color.RED){
             "remove"
         }else{

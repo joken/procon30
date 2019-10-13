@@ -1,8 +1,5 @@
 import java.awt.*
-import javax.swing.JFrame
-import javax.swing.JLabel
-import javax.swing.JLayeredPane
-import javax.swing.JPanel
+import javax.swing.*
 import javax.swing.border.LineBorder
 
 val CELL_SIZE = 30
@@ -16,6 +13,7 @@ class Window(val matchID: Long, private val ownTeamID: Long){
     private val frame: JFrame = JFrame("Procon30: $matchID")     // windowの側
     private val inputPanelsPanel = JPanel()
     private var inputPanels: List<InputPanel>? = null
+    private val postButton = PostButton(matchID)
 
     init {
         frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
@@ -30,6 +28,8 @@ class Window(val matchID: Long, private val ownTeamID: Long){
 
         gamePanel.preferredSize = Dimension(500, 500)
         panel.add(gamePanel, BorderLayout.CENTER)
+
+        panel.add(postButton, BorderLayout.SOUTH)
 
         frame.isVisible = true
     }
@@ -54,7 +54,7 @@ class Window(val matchID: Long, private val ownTeamID: Long){
             match.teams.forEach {
                 if (it.teamID == ownTeamID) {
                     inputPanels = it.agents.map { agent ->
-                        val ip = InputPanel(agent.agentID, ownTeamID, matchID)
+                        val ip = InputPanel(agent.agentID, ownTeamID, matchID, postButton)
                         inputPanelsPanel.add(ip)
                         ip
                     }
@@ -114,10 +114,18 @@ class PointPanel(point: Int): JPanel(){
     var action: Action? = null
 
     init {
+        this.layout = BorderLayout()
         this.border = LineBorder(Color.BLACK)
-        val layeredPane = JLayeredPane()
-        this.add(layeredPane)
-        val pointLabel = JLabel(point.toString())
+        val pointLabel = JLabel(point.toString()).also {
+            it.verticalAlignment = JLabel.CENTER
+            it.horizontalAlignment = JLabel.CENTER
+            it.minimumSize = Dimension(CELL_SIZE, CELL_SIZE)
+            it.preferredSize = Dimension(CELL_SIZE, CELL_SIZE)
+//            it.isOpaque = false
+//            it.border = LineBorder(Color.DARK_GRAY)
+        }
+        this.preferredSize = Dimension(CELL_SIZE, CELL_SIZE)
+        this.minimumSize = Dimension(CELL_SIZE, CELL_SIZE)
         this.add(pointLabel)
     }
 
@@ -130,14 +138,16 @@ class PointPanel(point: Int): JPanel(){
         super.paintComponent(g)
         if (agentID != null){
             if (agentIsOwnTeam) {
-                g.drawString(agentID.toString(), 10, 12)
-                g.color = Color(50, 50, 200, 70)
+                g.color = Color.WHITE
             }else{
-                g.color = Color(200, 50, 50, 70)
+                g.color = Color(200, 200, 200, 255)
             }
             g as Graphics2D
             g.stroke = BasicStroke(3.0f)
-            g.drawOval(5, 5, 20, 20)
+            g.drawOval(5, 5, CELL_SIZE-10, CELL_SIZE-10)
+            g.color = Color.BLACK
+            if (agentIsOwnTeam)
+                g.drawString(agentID.toString(), 1, 10)
             if (action != null){
                 when(action!!.type){
                     "move" -> {
@@ -231,6 +241,17 @@ class StatusPanel(private val ownTeamID: Long): JPanel() {
             0L -> Color.WHITE           // 空白
             ownTeamID -> Color.CYAN     // 自分
             else -> Color.RED           // 相手
+        }
+    }
+}
+
+class PostButton(private val matchID: Long): JButton("POST"){
+    val actions = Actions(mutableListOf())
+
+    init {
+        this.addActionListener {
+            postAction(matchID, actions)
+            (actions.actions as MutableList).clear()
         }
     }
 }
