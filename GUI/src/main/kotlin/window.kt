@@ -50,6 +50,12 @@ class Window(matchID: Long, private val ownTeamID: Long){
             }
         }
 
+        pointPanels!!.forEach {
+            it.forEach{ it1 ->
+                it1.agentID = null
+            }
+        }
+
         match.teams.forEach{
             it.agents.forEach { agent ->
                 pointPanels!![agent.y-1][agent.x-1].setAgent(agent, it.teamID == ownTeamID)
