@@ -1,1 +1,4 @@
-/simulator/build/*
+/simulator/build
+/operation/data
+/operation/field
+/operation/__pycache__
