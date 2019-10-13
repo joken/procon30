@@ -73,11 +73,15 @@ handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& 
         result_json.insert(std::make_pair("status", "OK"));
         std::cout << "Status: get Ping" << std::endl;
         return send(object_response(http::status::ok, result_json));
-    } else if (req.target() == "/matches") {
+    } else if (req.target() == "/matches/") {
         std::cout << "Status: get game information acquisition" << std::endl;
         return send(array_response(http::status::ok, gamebord->get_game_information()));
     } else if (req.target() == "/matches/1") {
         std::cout << "Status: get match" << std::endl;
+        int remain_time = gamebord->get_start_unix_time() - time(nullptr);
+        result_json.insert(std::make_pair("status", "TooEarly"));
+        if (remain_time <= 3) result_json.insert(std::make_pair("startAtUnixTime", static_cast<double>(gamebord->get_start_unix_time())));
+        if (remain_time > 0) return send(object_response(http::status::bad_request, result_json));
         return send(object_response(http::status::ok, gamebord->get_game_state()));
     } else if (req.target() == "/favicon.ico" ) {
         result_json.insert(std::make_pair("status", "Favicon is not found."));
@@ -129,7 +133,7 @@ void game_progress(GameBord* gamebord) {
     bool progress_flag = false;
     while(true) {
         now_unix_time = time(nullptr);
-        if (now_unix_time - gamebord->get_started_unix_time() == 0 && !game_start) {
+        if (now_unix_time - gamebord->get_start_unix_time() == 0 && !game_start) {
             start_clock = std::chrono::high_resolution_clock::now();
             game_start = true;
         }

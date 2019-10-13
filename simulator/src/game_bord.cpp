@@ -102,7 +102,7 @@ private:
     }
 
 public:
-    int get_started_unix_time() {return started_unix_time_;}
+    int get_start_unix_time() {return started_unix_time_;}
     int get_interval_millisecond() {return interval_millisecond_;}
     int get_turn_millisecond() {return turn_millisecond_;};
     // I use boost::property_tree instead of picojson to read json files. I will rewrite picojson if I'm free.
@@ -367,9 +367,6 @@ public:
             (*action).type = "stay";
             (*action).turn = turn_;
         }
-        
-        
-
     }
     
     bool end_turn() {return (turn_ == max_turn_);}
