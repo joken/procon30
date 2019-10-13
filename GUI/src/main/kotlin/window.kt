@@ -5,6 +5,8 @@ import javax.swing.JLayeredPane
 import javax.swing.JPanel
 import javax.swing.border.LineBorder
 
+val CELL_SIZE = 30
+
 // GUIウィンドウ
 class Window(matchID: Long, private val ownTeamID: Long){
 
@@ -32,6 +34,7 @@ class Window(matchID: Long, private val ownTeamID: Long){
     // 取得したデータでゲーム情報の更新を行う
     fun updateGame(match: Match){
         if (pointPanels == null){
+            gamePanel.preferredSize = Dimension(CELL_SIZE*match.width, CELL_SIZE*match.height)
             gamePanel.layout = GridLayout(match.height, match.width)
             pointPanels = match.points.map {
                 it.map { it1 ->
@@ -56,9 +59,19 @@ class Window(matchID: Long, private val ownTeamID: Long){
             }
         }
 
+        val agent2Position = HashMap<Long, Agent>()
+
         match.teams.forEach{
             it.agents.forEach { agent ->
                 pointPanels!![agent.y-1][agent.x-1].setAgent(agent, it.teamID == ownTeamID)
+                agent2Position[agent.agentID] = agent
+            }
+        }
+
+        match.actions.filter { it.turn == match.turn }.forEach {
+            val actionedAgent = agent2Position[it.agentID]
+            if (actionedAgent != null) {
+                pointPanels!![actionedAgent.y - 1][actionedAgent.x - 1].action = it
             }
         }
 
@@ -80,6 +93,7 @@ class PointPanel(point: Int): JPanel(){
 
     var agentID: Long? = null
     var agentIsOwnTeam = false
+    var action: Action? = null
 
     init {
         this.border = LineBorder(Color.BLACK)
@@ -105,7 +119,53 @@ class PointPanel(point: Int): JPanel(){
                 g.color = Color(200, 50, 50, 70)
             }
             g.stroke = BasicStroke(3.0f)
-            g.drawOval(10, 10, 20, 20)
+            g.drawOval(5, 5, 20, 20)
+            if (action != null){
+                when(action!!.type){
+                    "move" -> {
+                        when (action!!.apply) {
+                            0 -> {
+                                g.color = Color.BLUE
+                            }
+                            -1 -> {
+                                g.color = Color.RED
+                            }
+                            1 -> {
+                                g.color = Color.YELLOW
+                            }
+                        }
+                        g.drawOval(CELL_SIZE/2-action!!.dx*10, CELL_SIZE/2-action!!.dy*10, 5, 5)
+                    }
+                    "remove" -> {
+                        when (action!!.apply) {
+                            0 -> {
+                                g.color = Color.BLUE
+                            }
+                            -1 -> {
+                                g.color = Color.RED
+                            }
+                            1 -> {
+                                g.color = Color.ORANGE
+                            }
+                        }
+                        g.drawOval(CELL_SIZE/2+action!!.dx*10, CELL_SIZE/2+action!!.dy*10, 5, 5)
+                    }
+                    "stay" -> {
+                        when (action!!.apply) {
+                            0 -> {
+                                g.color = Color.BLUE
+                            }
+                            -1 -> {
+                                g.color = Color.RED
+                            }
+                            1 -> {
+                                g.color = Color.GREEN
+                            }
+                        }
+                        g.drawOval(CELL_SIZE / 2 - 5 / 2, CELL_SIZE / 2 - 5 / 2, 5, 5)
+                    }
+                }
+            }
         }
     }
 }

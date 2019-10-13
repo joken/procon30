@@ -33,10 +33,10 @@ data class Agent(
 
 data class Action(
     val agentID: Long,
-    val apply: Long,
-    val dx: Long,
-    val dy: Long,
-    val turn: Long,
+    val apply: Int,
+    val dx: Int,
+    val dy: Int,
+    val turn: Int,
     val type: String
 )
 
