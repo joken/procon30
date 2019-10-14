@@ -7,10 +7,10 @@ import javax.swing.border.LineBorder
 import kotlin.math.PI
 import kotlin.math.atan2
 
-val CELL_SIZE = 30
+const val CELL_SIZE = 30
 
 // GUIウィンドウ
-class Window(val matchID: Long, private val ownTeamID: Long){
+class Window(private val matchID: Long, private val ownTeamID: Long){
 
     private val gamePanel = JPanel()                        // ゲーム盤面のパネル
     private var pointPanels: List<List<PointPanel>>? = null // 各ポイントの書かれたパネル
@@ -115,9 +115,8 @@ class Window(val matchID: Long, private val ownTeamID: Long){
 
 class PointPanel(point: Int, var pointPanels: List<List<PointPanel>>? = null, postButton: PostButton?=null): JPanel(){
 
-//    var agentID: Long? = null
     var agent: Agent? = null
-    var agentIsOwnTeam = false
+    private var agentIsOwnTeam = false
     var action: Action? = null
 
     init {
@@ -164,6 +163,7 @@ class PointPanel(point: Int, var pointPanels: List<List<PointPanel>>? = null, po
                 val doAction = DoAction(agent!!.agentID, ddx, ddy, chooseMoveOrRemove(ddx, ddy))
                 println(doAction)
                 (postButton?.actions?.actions as MutableList?)?.add(doAction)
+                postButton?.doClick()
             }
             override fun mouseDragged(e: MouseEvent){
                 val g = this@PointPanel.graphics

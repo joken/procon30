@@ -3,6 +3,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.GridLayout
@@ -14,9 +15,9 @@ import javax.swing.border.LineBorder
 
 
 
-class InputPanel(val agentID: Long, val teamID: Long, id: Long, var postButton: PostButton? = null): JPanel(){
+class InputPanel(private val agentID: Long, private val teamID: Long, id: Long, private var postButton: PostButton? = null): JPanel(){
 
-    val inputButtonList = listOf(
+    private val inputButtonList = listOf(
         listOf(JButton("1"), JButton("2"), JButton("3")),
         listOf(JButton("4"), JButton("5"), JButton("6")),
         listOf(JButton("7"), JButton("8"), JButton("9"))
@@ -83,7 +84,7 @@ class InputPanel(val agentID: Long, val teamID: Long, id: Long, var postButton: 
         }
     }
 
-    fun getPanelColor(tiled: Int): Color{
+    private fun getPanelColor(tiled: Int): Color{
         return when(tiled){
             0 -> Color.BLACK                    // 空白
             teamID.toInt() -> Color.BLUE     // 自分
@@ -104,7 +105,7 @@ fun postAction(id: Long, actions: Actions){
     val json = jacksonObjectMapper().writeValueAsString(actions)
     val url = "http://$DOMAIN/matches/$id/action"
     val mediaTypeJson = "application/json".toMediaTypeOrNull()
-    val requestBody = RequestBody.create(mediaTypeJson, json)
+    val requestBody = json.toRequestBody(mediaTypeJson)
     val request = Request.Builder().url(url).header("Authorization", TOKEN).post(requestBody).build()
     val client = OkHttpClient.Builder().build()
     val response = client.newCall(request).execute()
