@@ -13,13 +13,18 @@ from keras.layers.merge import concatenate
 from keras.optimizers import Adam
 import matplotlib.pyplot as plt
 import sys
+import resource
+from copy import copy
+import tensorflow as tf
+sys.setrecursionlimit(100000)
+resource.getrlimit(resource.RLIMIT_STACK)
 
 
 def get_game_team_id():
     global TEAM_ID, interval_millisecond, turn_millisecond, MAX_TURN
-    url = BASE_URL + "matches"
+    url = BASE_URL + "matches/" + TOKEN
+    print(url)
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -35,9 +40,8 @@ def get_game_team_id():
 
 def get_game_set(team_id):
     global HEIGHT, WIDTH, START_UNIX_TIME, AGENTS, ENEMY_AGENTS, NUMBER_OF_AGENTS
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -61,14 +65,16 @@ def get_game_set(team_id):
     except urllib.error.HTTPError as e:
         response = e.read()
         response = json.loads(response)
-        START_UNIX_TIME = response["startAtUnixTime"]
+        try:
+            START_UNIX_TIME = response["startAtUnixTime"]
+        except KeyError:
+            START_UNIX_TIME = -1
 
 
 def get_game_status(team_id):
     status = np.zeros([HEIGHT, WIDTH])
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -87,9 +93,8 @@ def get_game_status(team_id):
 
 def get_my_coordinate(team_id, agent_id):
     status = np.zeros((HEIGHT, WIDTH))
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -106,9 +111,8 @@ def get_my_coordinate(team_id, agent_id):
 
 
 def get_agent_coordinate(team_id, agent_id):
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -126,9 +130,8 @@ def get_agent_coordinate(team_id, agent_id):
 
 def get_enemy_coordinate(team_id):
     status = np.zeros((HEIGHT, WIDTH))
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -146,9 +149,8 @@ def get_enemy_coordinate(team_id):
 
 def get_panel_score():
     status = np.zeros([HEIGHT, WIDTH])
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -161,21 +163,20 @@ def get_panel_score():
 
 
 def post_agent_action(agent_id, move_coordinate, move_types):
-    url = BASE_URL + "matches/" + str(MATCH_ID) + "/action"
+    url = BASE_URL + "matches/" + str(MATCH_ID) + "/action" + TOKEN
     method = "POST"
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
 
     actions = []
-    for (agent, coordinate, move_type) in zip(agent_id, move_coordinate, move_types):
+    for i in range(len(agent_id)):
         # print(coordinate)
         actions.append({
-            "agentID": agent,
-            "dx": coordinate[0],
-            "dy": coordinate[1],
-            "type": move_type
+            "agentID": agent_id[i],
+            "dx": move_coordinate[i][0],
+            "dy": move_coordinate[i][1],
+            "type": move_types[i]
         })
 
     json_object = {"actions": actions}
@@ -225,40 +226,90 @@ def create_Qmodel():
     return final
 
 
+def move_area_point(status_input, x, y):
+    if x < 0 or y < 0 or x >= WIDTH or y >= HEIGHT:
+        return
+
+    if status_input[y][x] == 1 or status_input[y][x] == 2:
+        return
+    
+    status_input[y][x] = 2
+    move_area_point(status_input, x, y - 1)
+    move_area_point(status_input, x + 1, y)
+    move_area_point(status_input, x, y + 1)
+    move_area_point(status_input, x - 1, y)
+
+
 def action_check(field_input, status_input, my_input, action, agent_x, agent_y, my_panel_duplicate, minus):
     if action == 16:
-        return False  # stay is break
+        return False, 0  # stay is break
+    
+    agent_x_1 = 0
+    agent_y_1 = 0
 
-    agent_x = agent_x + SET_LIST[action % 8][0]
-    agent_y = agent_y + SET_LIST[action % 8][1]
+    for y, x_tiled in enumerate(my_input):
+        for x, one in enumerate(x_tiled):
+            if one == 2:
+                agent_x_1 = x
+                agent_y_1 = y
+    agent_x_1 += SET_LIST[action % 8][0]
+    agent_y_1 += SET_LIST[action % 8][1]
+    euclid = 0
 
-    if agent_x <= 0 or agent_y <= 0 or agent_x > WIDTH or agent_y > HEIGHT:
-        return False  # out of field
+    for y, x_tiled in enumerate(my_input):
+        for x, one in enumerate(x_tiled):
+            if one == 1:
+                euclid += math.sqrt(math.pow(math.fabs(y - agent_y_1) - 5, 2) + math.pow(math.fabs(x - agent_x) + 5, 2))
 
-    if math.floor(action / 8) == 0 and status_input[agent_y - 1][agent_x - 1] == -1:
-        return False
+    euclid /= 15
 
-    if math.floor(action / 8) == 0 and status_input[agent_y - 1][agent_x - 1] == 1:
-        return my_panel_duplicate
+    if agent_x_1 < 0 or agent_y_1 < 0 or agent_x_1 >= WIDTH or agent_y_1 >= HEIGHT:
+        return False, 0  # out of field
 
-    if math.floor(action / 8) == 0 and field_input[agent_y - 1][agent_x - 1] < 0:
-        return minus
+    area_check = copy(status_input)
+    for i in range(WIDTH):
+        move_area_point(area_check, i, 0)
+        move_area_point(area_check, i, HEIGHT - 1)
+    
+    for i in range(HEIGHT):
+        move_area_point(area_check, 0, i)
+        move_area_point(area_check, WIDTH - 1, i)
 
-    if math.floor(action / 8) == 1 and status_input[agent_y - 1][agent_x - 1] != -1:
-        return False
+    if field_input[agent_y_1][agent_x_1] < -4:
+        return False, 0
+
+    # print(status_input)
+
+    if math.floor(action / 8) == 0:
+        if status_input[agent_y_1][agent_x_1] == -1:
+            return False, 0
+        elif status_input[agent_y_1][agent_x_1] == 1:
+            return my_panel_duplicate, (euclid if my_panel_duplicate else 0)
+        elif area_check[agent_y_1][agent_x_1] == 0:
+            return False, 0
+        # elif field_input[agent_y_1][agent_x_1] < 0 and not minus:
+        #    return False, 0
+        # elif field_input[agent_y_1][agent_x_1] < -4 and minus:
+        #   return False, 0
+
+    # if math.floor(action / 8) == 1 and status_input[agent_y_1][agent_x_1] == 1 and field_input[agent_y_1][agent_x_1] < 0:
+    #    return True, euclid
+
+    if math.floor(action / 8) == 1 and status_input[agent_y_1][agent_x_1] != -1:
+        return False, 0
     # print(str(agent_x) + " " + str(agent_y))
 
-    return True
+    return True, euclid
 
 
 def get_action(model, panel_input, status_input, my_input, enemy_input, turn, rand, team_id, agent_id, other_agent_coordinate):
     # epsilon = 0.1**(3) + 0.9 / (1.0 + turn)
     set_coordinate = [0, 0]
     next_actions = []
-    panel_non_reshape = panel_input
+    panel_non_reshape = copy(panel_input)
     panel_input = input_reshape(panel_input)
-    status_non_reshape = status_input
-    my_non_reshape = my_input
+    status_non_reshape = copy(status_input)
+    my_non_reshape = copy(my_input)
     status_input = input_reshape(status_input)
     my_input = input_reshape(my_input)
     enemy_input = input_reshape(enemy_input)
@@ -267,7 +318,8 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
 
     # normal
     for i in range(17):
-        if not action_check(panel_non_reshape, status_non_reshape, my_non_reshape, i, agent_x, agent_y, False, False):
+        check, add = action_check(panel_non_reshape, status_non_reshape, my_non_reshape, i, agent_x, agent_y, False, False)
+        if not check:
             continue
         set_actions.append(i)
         pattan = np.zeros((17,))
@@ -275,10 +327,10 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
         pattan = pattan_reshape(pattan)
         result = model.predict(
             [panel_input, status_input, my_input, enemy_input, pattan])
-        next_actions.append(result)
+        next_actions.append(result + add)
 
     # print(str(agent_x) + " " + str(agent_y))
-    if random.random() > rand and len(next_actions) >= 4:
+    if random.random() > rand:
         for i in range(len(next_actions)):
             action = np.argmax(next_actions)
             set_coordinate[0] = agent_x + SET_LIST[set_actions[action] % 8][0]
@@ -288,7 +340,7 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
             else:
                 del next_actions[action]
                 del set_actions[action]
-    elif len(next_actions) >= 4:
+    else:
         for i in range(len(next_actions)):
             action = np.random.randint(0, len(set_actions))
             set_coordinate[0] = agent_x + SET_LIST[set_actions[action] % 8][0]
@@ -299,9 +351,12 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
                 del next_actions[action]
                 del set_actions[action]
 
+    set_actions = []
+    next_actions = []
     # special and duplicate code -> Fix if I have a time.
     for i in range(17):
-        if not action_check(panel_non_reshape, status_non_reshape, my_non_reshape, i, agent_x, agent_y, True, False):
+        check, add = action_check(panel_non_reshape, status_non_reshape, my_non_reshape, i, agent_x, agent_y, False, True)
+        if not check:
             continue
         set_actions.append(i)
         pattan = np.zeros((17,))
@@ -309,10 +364,10 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
         pattan = pattan_reshape(pattan)
         result = model.predict(
             [panel_input, status_input, my_input, enemy_input, pattan])
-        next_actions.append(result)
+        next_actions.append(result + add)
 
     # print(str(agent_x) + " " + str(agent_y))
-    if random.random() > rand and len(next_actions) >= 4:
+    if random.random() > rand:
         for i in range(len(next_actions)):
             action = np.argmax(next_actions)
             set_coordinate[0] = agent_x + SET_LIST[set_actions[action] % 8][0]
@@ -322,7 +377,7 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
             else:
                 del next_actions[action]
                 del set_actions[action]
-    elif len(next_actions) >= 4:
+    else:
         for i in range(len(next_actions)):
             action = np.random.randint(0, len(set_actions))
             set_coordinate[0] = agent_x + SET_LIST[set_actions[action] % 8][0]
@@ -332,9 +387,13 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
             else:
                 del next_actions[action]
                 del set_actions[action]
+
+    set_actions = []
+    next_actions = []
     # special and duplicate code -> Fix if I have a time.
     for i in range(17):
-        if not action_check(panel_non_reshape, status_non_reshape, my_non_reshape, i, agent_x, agent_y, True, True):
+        check, add = action_check(panel_non_reshape, status_non_reshape, my_non_reshape, i, agent_x, agent_y, True, True)
+        if not check:
             continue
         set_actions.append(i)
         pattan = np.zeros((17,))
@@ -342,7 +401,7 @@ def get_action(model, panel_input, status_input, my_input, enemy_input, turn, ra
         pattan = pattan_reshape(pattan)
         result = model.predict(
             [panel_input, status_input, my_input, enemy_input, pattan])
-        next_actions.append(result)
+        next_actions.append(result + add)
 
     # print(str(agent_x) + " " + str(agent_y))
     if random.random() > rand:
@@ -381,9 +440,8 @@ def check_duplicate(agent_coordinate, other_coordinate):
 
 
 def get_reward(team_id):
-    url = BASE_URL + "matches/" + str(MATCH_ID)
+    url = BASE_URL + "matches/" + str(MATCH_ID) + TOKEN
     headers = {
-        "Authorization": TOKEN,
         "Content-Type": "application/json"
     }
     request = urllib.request.Request(url, headers=headers)
@@ -407,7 +465,7 @@ def pattan_reshape(pattan_input):
     return pattan_input.reshape((1, 17))
 
 
-# Move number
+# Move numberprint("1")
 UPWARD = [0, -1]
 UPPER_RIGHT = [1, -1]
 RIGHT = [1, 0]
@@ -442,7 +500,7 @@ MAX_TURN = 30
 # parameter
 BATCH_SIZE = 10
 LEARNING_NUMBER = 50
-PRODUCTION = False
+PRODUCTION = True
 DISCOUNT = 0.95
 
 DQN_MODE = True
@@ -453,18 +511,23 @@ enemyscore_list = np.zeros(LEARNING_NUMBER + 1)
 
 basedir = "./data/"
 
+DUPLICATE_LIST = []
+ENEMY = False
+
 
 def exit_signal(sig, fram):
-    main_model.save(basedir + dirname + "/" + "model.h5")
-    plt.plot(myscore_list)
-    plt.plot(enemyscore_list)
-    plt.savefig(basedir + dirname + "/" + "all-episode.png")
+    # main_model.save(basedir + dirname + "/" + "model.h5")
+    # plt.plot(myscore_list)
+    # plt.plot(enemyscore_list)
+    # plt.savefig(basedir + dirname + "/" + "all-episode.png")
     sys.exit(1)
 
 
 dirname = ""
 
 if __name__ == "__main__":
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    tf.config.experimental.set_memory_growth(gpus[0], True)
     signal.signal(signal.SIGINT, exit_signal)
     if not PRODUCTION:
         # start learning
@@ -586,14 +649,28 @@ if __name__ == "__main__":
         plt.plot(enemyscore_list)
         plt.savefig(basedir + dirname + "/" + "all-episode.png")
     else:
-        MATCH_ID = int(sys.argv[1])
+        if sys.argv[1] == "local":
+            MATCH_ID = 1
+            TOKEN = ""
+            BASE_URL = "http://localhost:8081/"
+            ENEMY = True
+        else:
+            MATCH_ID = int(sys.argv[1])
+            with open("./token.txt") as f:
+                TOKEN = "?token=" + f.read()
+            print(TOKEN)            
+            BASE_URL = "http://10.10.52.252/"
         get_game_team_id()
-        get_game_set(TEAM_ID)
+        while True:
+            time.sleep(0.3)
+            get_game_set(TEAM_ID)
+            if START_UNIX_TIME != -1:
+                break
         main_model = create_Qmodel()
-        exits_model = 0.0
+        exits_model = 0.3
         print(START_UNIX_TIME)
         while True:
-            if time.time() - 1 <= START_UNIX_TIME:
+            if time.time() - 1.5 <= START_UNIX_TIME:
                 continue  # not game start
             now_time = time.perf_counter()
             if now_turn == 0:
@@ -613,9 +690,15 @@ if __name__ == "__main__":
                 print(dirname)
                 if os.path.exists(basedir + dirname + "/model.h5"):
                     main_model = load_model(basedir + dirname + "/model.h5")
+                    # main_model = create_Qmodel()
                 else:
                     main_model = create_Qmodel()
                     exits_model = 0.3
+                temp = []
+                for i in range(NUMBER_OF_AGENTS):
+                    temp.append([])
+                DUPLICATE_LIST.append(temp)
+                DUPLICATE_LIST.append(temp)
             panel_score = get_panel_score()
             game_status = get_game_status(TEAM_ID)
             my_action = []
@@ -623,8 +706,10 @@ if __name__ == "__main__":
             my_coordinate = []
             for i in range(NUMBER_OF_AGENTS):
                 my_input = get_my_coordinate(TEAM_ID, AGENTS[i])
+                # print(my_input)
                 my_enemy_input = get_enemy_coordinate(TEAM_ID)
                 next_action, action_point, action_coordinate = get_action(main_model, panel_score, game_status, my_input, my_enemy_input, now_turn, exits_model, TEAM_ID, AGENTS[i], my_coordinate)
+                # print(next_action)
                 my_coordinate.append(action_coordinate)
                 if next_action == 16:
                     my_action.append([0, 0])
@@ -633,6 +718,27 @@ if __name__ == "__main__":
                     my_action.append(SET_LIST[next_action % 8])
                     my_type.append(ACTION[math.floor(next_action / 8)])
             post_agent_action(AGENTS, my_action, my_type)
+
+            if ENEMY:
+                enemy_status = get_game_status(1)
+                enemy_action = []
+                enemy_type = []
+                enemy_coordinate = []
+                # print(ENEMY_AGENTS)
+                for i in range(NUMBER_OF_AGENTS):
+                    enemy_input = get_my_coordinate(1, ENEMY_AGENTS[i])
+                    # print(enemy_input)
+                    enemy_enemy_input = get_enemy_coordinate(1)
+                    next_action, action_point, action_coordinate = get_action(main_model, panel_score, enemy_status, enemy_input, enemy_enemy_input, now_turn, exits_model, 1, ENEMY_AGENTS[i], enemy_coordinate)
+                    # print(next_action)
+                    enemy_coordinate.append(action_coordinate)
+                    if next_action == 16:
+                        enemy_action.append([0, 0])
+                        enemy_type.append("stay")
+                    else:
+                        enemy_action.append(SET_LIST[next_action % 8])
+                        enemy_type.append(ACTION[math.floor(next_action / 8)])
+                post_agent_action(ENEMY_AGENTS, enemy_action, enemy_type)
             output = False
             while True:
                 end_time = time.perf_counter()

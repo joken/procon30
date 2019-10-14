@@ -157,3 +157,6 @@ def random_field(height, width, number_of_agents, port):
     with open(filepath, 'w') as f:
         json.dump(json_data, f, indent=2)
         return filepath
+
+
+random_field(14, 14, 5, 8000)
